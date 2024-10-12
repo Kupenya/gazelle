@@ -356,12 +356,10 @@ const removeCartItem = asyncHandler(async (req, res) => {
       req.session.cart = null;
     }
 
-    res
-      .status(200)
-      .json({
-        message: "Item removed from cart",
-        cart: req.session.cart || [],
-      });
+    res.status(200).json({
+      message: "Item removed from cart",
+      cart: req.session.cart || [],
+    });
   }
 });
 
@@ -408,8 +406,6 @@ export {
   authUserOrAdmin,
   registerUser,
   logoutUser,
-  getUserProfile,
-  updateUserProfile,
   addToCart,
   getCart,
   updateCartItem,
