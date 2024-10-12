@@ -1,4 +1,5 @@
 import express from "express";
+import session from "express-session";
 import dotenv from "dotenv";
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -16,6 +17,14 @@ app.use(cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { maxAge: 1000 * 60 * 60 * 24 },
+  })
+);
 
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);

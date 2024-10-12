@@ -20,10 +20,10 @@ router.post("/auth", authUserOrAdmin);
 router.post("/logout", logoutUser);
 
 // cart
-router.post("/cart", protect, userOnly, addToCart);
-router.get("/cart", protect, userOnly, getCart);
-router.put("/cart", protect, userOnly, updateCartItem);
-router.delete("/cart/remove/:productId", protect, userOnly, removeCartItem);
-router.delete("/cart/clear", protect, userOnly, clearCart);
+router.post("/cart", addToCart);
+router.get("/cart", getCart);
+router.put("/cart", updateCartItem);
+router.delete("/cart/remove/:productId", removeCartItem);
+router.delete("/cart/clear", clearCart);
 
 export default router;

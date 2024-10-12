@@ -133,60 +133,11 @@ const logoutUser = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "User logged out" }); // the logout should should be handleed by the frontend where we are destroying the token and clearing from local storage or whereever the FE is saving the token
 });
 
-//@desc    Get user profile
-//route    GET /api/users/profile
-//@access  Private
-const getUserProfile = asyncHandler(async (req, res) => {
-  if (!req.user) {
-    return res.status(400).json({ message: "User not found" });
-  }
-  res.status(200).json({
-    _id: req.user._id,
-    firstName: req.user.firstName,
-    lastName: req.user.lastName,
-    email: req.user.email,
-    userState: req.user.userState,
-    isAdmin: req.user.isAdmin,
-  });
-});
-
-//@desc    Update user profile
-//route    PUT /api/users/profile
-//@access  Private
-const updateUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-
-  if (user) {
-    user.firstName = req.body.firstName || user.firstName;
-    user.lastName = req.body.lastName || user.lastName;
-    user.userState = req.body.userState || user.userState;
-    user.email = req.body.email || user.email;
-
-    if (req.body.password) {
-      user.password = req.body.password;
-    }
-
-    const updatedUser = await user.save();
-
-    res.status(200).json({
-      _id: updatedUser._id,
-      firstName: updatedUser.firstName,
-      lastName: updatedUser.lastName,
-      userState: updatedUser.userState,
-      email: updatedUser.email,
-    });
-  } else {
-    res.status(404);
-    throw new Error("User not found");
-  }
-});
-
 //@desc    Add item to cart
 //@route   POST /api/cart/add
-//@access  Private
+//@access  Private (Admin only)
 const addToCart = asyncHandler(async (req, res) => {
   const { productId, quantity } = req.body;
-  const userId = req.user._id;
 
   // Check if the product exists
   const product = await Product.findById(productId);
@@ -195,53 +146,91 @@ const addToCart = asyncHandler(async (req, res) => {
     throw new Error("Product not found");
   }
 
-  // Find the user's cart or create a new one if it doesn't exist
-  let cart = await Cart.findOne({ userId });
+  // If user is authenticated
+  if (req.user) {
+    const userId = req.user._id;
 
-  if (!cart) {
-    cart = new Cart({ userId, items: [] });
-  }
+    // Find the user's cart or create a new one if it doesn't exist
+    let cart = await Cart.findOne({ userId });
 
-  // Check if the product is already in the cart
-  const existingCartItem = cart.items.find(
-    (item) => item.productId.toString() === productId
-  );
+    if (!cart) {
+      cart = new Cart({ userId, items: [] });
+    }
 
-  if (existingCartItem) {
-    existingCartItem.quantity += quantity;
+    // Check if the product is already in the cart
+    const existingCartItem = cart.items.find(
+      (item) => item.productId.toString() === productId
+    );
+
+    if (existingCartItem) {
+      existingCartItem.quantity += quantity;
+    } else {
+      // Add new item to the cart
+      cart.items.push({ productId, quantity });
+    }
+
+    // Save the cart
+    const updatedCart = await cart.save();
+
+    return res
+      .status(200)
+      .json({ message: "Item added to cart", cart: updatedCart });
   } else {
-    // Add new item to the cart
-    cart.items.push({ productId, quantity });
+    // If the user is not authenticated, store in session
+    if (!req.session.cart) {
+      req.session.cart = [];
+    }
+
+    // Check if the product is already in the session cart
+    const existingSessionItem = req.session.cart.find(
+      (item) => item.productId === productId
+    );
+
+    if (existingSessionItem) {
+      existingSessionItem.quantity += quantity;
+    } else {
+      // Add new item to the session cart
+      req.session.cart.push({ productId, quantity });
+    }
+
+    return res
+      .status(200)
+      .json({ message: "Item added to session cart", cart: req.session.cart });
   }
-
-  // Save the cart
-  const updatedCart = await cart.save();
-
-  res.status(200).json({ message: "Item added to cart", cart: updatedCart });
 });
 
 //@desc    Get user's cart
 //@route   GET /api/cart
-//@access  Private
+//@access  Private (Admin only)
 const getCart = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
+  // Check if the user is authenticated
+  if (req.user) {
+    const userId = req.user._id;
 
-  // Find the user's cart
-  const cart = await Cart.findOne({ userId }).populate("items.productId");
+    // Find the user's cart and populate the product details
+    const cart = await Cart.findOne({ userId }).populate("items.productId");
 
-  if (!cart) {
-    return res.status(200).json({ items: [] }); // Return empty cart if cart is a falsy
+    if (!cart) {
+      return res.status(200).json({ items: [] }); // Return an empty array if no cart exists
+    }
+
+    res.status(200).json(cart);
+  } else {
+    // For unauthenticated users, check the session cart
+    if (!req.session.cart || req.session.cart.length === 0) {
+      return res.status(200).json({ items: [] }); // Return an empty array if session cart doesn't exist
+    }
+
+    // Return the session cart for unauthenticated users
+    res.status(200).json({ items: req.session.cart });
   }
-
-  res.status(200).json(cart);
 });
 
 //@desc    Update cart item quantity
 //@route   PUT /api/cart/update
-//@access  Private
+//@access  Private/Public (Both authenticated and unauthenticated users)
 const updateCartItem = asyncHandler(async (req, res) => {
   const { productId, quantity } = req.body;
-  const userId = req.user._id;
 
   // Validate the quantity
   if (quantity < 1) {
@@ -249,87 +238,170 @@ const updateCartItem = asyncHandler(async (req, res) => {
     throw new Error("Quantity must be at least 1");
   }
 
-  // Find the user's cart (truthy)
-  const cart = await Cart.findOne({ userId });
+  if (req.user) {
+    // If the user is authenticated
+    const userId = req.user._id;
 
-  if (!cart) {
-    res.status(404);
-    throw new Error("Cart not found");
+    // Find the user's cart
+    const cart = await Cart.findOne({ userId });
+
+    if (!cart) {
+      res.status(404);
+      throw new Error("Cart not found");
+    }
+
+    // Find the cart item
+    const cartItem = cart.items.find(
+      (item) => item.productId.toString() === productId
+    );
+
+    if (!cartItem) {
+      res.status(404);
+      throw new Error("Product not found in cart");
+    }
+
+    // Update the quantity
+    cartItem.quantity = quantity;
+
+    // Save the cart
+    const updatedCart = await cart.save();
+
+    res.status(200).json({ message: "Cart item updated", cart: updatedCart });
+  } else {
+    // For unauthenticated users, update cart stored in the session
+    if (!req.session.cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+
+    // Find the cart item in the session cart
+    const cartItem = req.session.cart.find(
+      (item) => item.productId === productId
+    );
+
+    if (!cartItem) {
+      return res.status(404).json({ message: "Product not found in cart" });
+    }
+
+    // Update the quantity
+    cartItem.quantity = quantity;
+
+    // Update the session cart
+    req.session.cart = req.session.cart.map((item) =>
+      item.productId === productId ? { ...item, quantity } : item
+    );
+
+    res
+      .status(200)
+      .json({ message: "Cart item updated", cart: req.session.cart });
   }
-
-  // Find the cart item
-  const cartItem = cart.items.find((item) => item.productId == productId);
-
-  if (!cartItem) {
-    res.status(404);
-    throw new Error("Product not found in cart");
-  }
-
-  // Update the quantity
-  cartItem.quantity = quantity;
-
-  // Save the cart
-  const updatedCart = await cart.save();
-
-  res.status(200).json({ message: "Cart item updated", cart: updatedCart });
 });
 
 //@desc    Remove item from cart
 //@route   DELETE /api/cart/remove/:productId
-//@access  Private
+//@access  Private/Public (Both authenticated and unauthenticated users)
 const removeCartItem = asyncHandler(async (req, res) => {
   const { productId } = req.params;
-  const userId = req.user._id;
 
-  // Find the user's cart
-  const cart = await Cart.findOne({ userId });
+  if (req.user) {
+    // If the user is authenticated
+    const userId = req.user._id;
 
-  if (!cart) {
-    res.status(404);
-    throw new Error("Cart not found");
+    // Find the user's cart
+    const cart = await Cart.findOne({ userId });
+
+    if (!cart) {
+      res.status(404);
+      throw new Error("Cart not found");
+    }
+
+    // Find the item in the cart
+    const itemIndex = cart.items.findIndex(
+      (item) => item.productId.toString() === productId
+    );
+
+    if (itemIndex === -1) {
+      res.status(404);
+      throw new Error("Product not found in cart");
+    }
+
+    // Remove the item from the cart
+    cart.items.splice(itemIndex, 1);
+
+    // Save the cart
+    const updatedCart = await cart.save();
+
+    res
+      .status(200)
+      .json({ message: "Item removed from cart", cart: updatedCart });
+  } else {
+    // For unauthenticated users, handle session cart
+    if (!req.session.cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+
+    // Find the item in the session cart
+    const itemIndex = req.session.cart.findIndex(
+      (item) => item.productId === productId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: "Product not found in cart" });
+    }
+
+    // Remove the item from the session cart
+    req.session.cart.splice(itemIndex, 1);
+
+    // If the cart is empty after removing the item, clear the session cart
+    if (req.session.cart.length === 0) {
+      req.session.cart = null;
+    }
+
+    res
+      .status(200)
+      .json({
+        message: "Item removed from cart",
+        cart: req.session.cart || [],
+      });
   }
-
-  // Find the item in the cart
-  const itemIndex = cart.items.findIndex((item) => item.productId == productId);
-
-  if (itemIndex === -1) {
-    res.status(404);
-    throw new Error("Product not found in cart");
-  }
-
-  // Remove the item
-  cart.items.splice(itemIndex, 1);
-
-  // Save the cart
-  const updatedCart = await cart.save();
-
-  res
-    .status(200)
-    .json({ message: "Item removed from cart", cart: updatedCart });
 });
 
 //@desc    Clear user's cart
 //@route   DELETE /api/cart/clear
-//@access  Private
+//@access  Private/Public (Both authenticated and unauthenticated users)
 const clearCart = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
+  if (req.user) {
+    // For authenticated users
+    const userId = req.user._id;
 
-  // Find the user's cart
-  const cart = await Cart.findOne({ userId });
+    // Find the user's cart
+    const cart = await Cart.findOne({ userId });
 
-  if (!cart) {
-    return res
-      .status(200)
-      .json({ message: "Cart is already empty", cart: { items: [] } });
+    if (!cart) {
+      return res
+        .status(200)
+        .json({ message: "Cart is already empty", cart: { items: [] } });
+    }
+
+    // Clear all items
+    cart.items = [];
+
+    // Save the cleared cart
+    const updatedCart = await cart.save();
+
+    res.status(200).json({ message: "Cart cleared", cart: updatedCart });
+  } else {
+    // For unauthenticated users (session cart)
+    if (!req.session.cart || req.session.cart.length === 0) {
+      return res
+        .status(200)
+        .json({ message: "Cart is already empty", cart: { items: [] } });
+    }
+
+    // Clear the session cart
+    req.session.cart = null;
+
+    res.status(200).json({ message: "Cart cleared", cart: { items: [] } });
   }
-
-  // Clear all items
-  cart.items = [];
-
-  // Save the cart
-  const updatedCart = await cart.save();
-
-  res.status(200).json({ message: "Cart cleared", cart: updatedCart });
 });
 
 export {

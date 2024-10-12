@@ -21,7 +21,7 @@ router.post(
   "/products",
   protect,
   adminOnly,
-  upload.array("image", 3),
+  upload.array("images", 3),
   uploadToCloudinary,
   postProduct
 );
@@ -37,7 +37,7 @@ router.put(
   "/products/:id",
   protect,
   adminOnly,
-  upload.array("image", 3),
+  upload.array("images", 3),
   uploadToCloudinary,
   updateProduct
 );

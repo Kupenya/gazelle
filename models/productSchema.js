@@ -8,11 +8,11 @@ const productSchema = new mongoose.Schema({
   },
   name: {
     type: String,
-    required: true,
+    required: [true, "Name is required"],
   },
   quantity: {
     type: Number,
-    required: true,
+    required: [true, "Quantity is required"],
   },
   availability: {
     type: String,
@@ -21,12 +21,12 @@ const productSchema = new mongoose.Schema({
   },
   price: {
     type: Number,
-    required: true,
+    required: [true, "Price is required"],
   },
   sizes: [
     {
       type: String,
-      required: true,
+      required: [true, "sizes is required"],
     },
   ],
   colors: [
@@ -35,12 +35,28 @@ const productSchema = new mongoose.Schema({
       required: false,
     },
   ],
-  images: [
-    {
-      type: String,
-      required: true,
+  images: {
+    type: [
+      {
+        url: {
+          type: String,
+          required: true,
+        },
+        publicId: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
+    validate: {
+      validator: function (v) {
+        return v.length >= 1 && v.length <= 3;
+      },
+      message: "Product must have between 1 and 3 images",
     },
-  ],
+    required: [true, "At least one image is required"],
+  },
+
   description: {
     type: String,
     required: true,

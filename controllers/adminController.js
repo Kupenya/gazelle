@@ -80,53 +80,34 @@ const registerAdmin = asyncHandler(async (req, res) => {
 // @route   POST /api/admin/products
 // @access  Private (Admin only)
 const postProduct = asyncHandler(async (req, res) => {
+  console.log("Req Files:", req.files);
+
   const { name, quantity, price, sizes, colors, description, images } =
     req.body;
-
-  // Check if images are provided
-  if (!req.files) {
-    res.status(400);
-    throw new Error("Product images are required");
-  }
-
-  // Validate number of images (max 3, min 1)
-  if (req.files.length < 1 || req.files.length > 3) {
-    res.status(400);
-    throw new Error("Invalid number of images (1-3)");
-  }
 
   // Calculate availability based on quantity
   const availability = quantity > 0 ? "Available" : "Unavailable";
 
   // Create new product
-  const product = await Product.create({
-    admin: req.user._id,
-    name,
-    quantity,
-    availability,
-    price,
-    sizes,
-    colors,
-    description,
-    images: req.files.map((file) => file.path), // Store image paths
-  });
-
-  if (product) {
-    res.status(201).json({
-      _id: product._id,
-      name: product.name,
-      quantity: product.quantity,
-      availability: product.availability,
-      price: product.price,
-      sizes: product.sizes,
-      colors: product.colors,
-      description: product.description,
-      images: product.images, // Return image paths
-      admin: product.admin,
+  try {
+    const product = await Product.create({
+      admin: req.user._id,
+      name,
+      quantity,
+      availability,
+      price,
+      sizes,
+      colors,
+      description,
+      images,
     });
-  } else {
-    res.status(400);
-    throw new Error("Invalid product data");
+    res.status(201).json({
+      message: "Product created successfully",
+      product,
+    });
+  } catch (error) {
+    console.error("Error creating product:", error);
+    res.status(500).json({ message: "Error creating product" });
   }
 });
 
