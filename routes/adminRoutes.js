@@ -10,6 +10,10 @@ import {
   deleteProduct,
   getAdminProducts,
   getAllProducts,
+  getAllOrders,
+  getOrderById,
+  updateOrderStatus,
+  deleteOrder,
 } from "../controllers/adminController.js";
 import { adminOnly, protect } from "../middleware/authMiddleware.js";
 
@@ -44,5 +48,17 @@ router.put(
 
 // Delete a product
 router.delete("/products/:id", protect, adminOnly, deleteProduct);
+
+// 3.1 View All Orders (GET /admin/orders)
+router.get("/orders", protect, adminOnly, getAllOrders);
+
+// 3.2 View Order Details (GET /admin/orders/:orderId)
+router.get("/orders/:orderId", protect, adminOnly, getOrderById);
+
+// 3.3 Update Order Status (PUT /admin/orders/:orderId/status)
+router.put("/orders/:orderId/status", protect, adminOnly, updateOrderStatus);
+
+// 3.4 Delete Order (DELETE /admin/orders/:orderId)
+router.delete("/orders/:orderId", protect, adminOnly, deleteOrder);
 
 export default router;

@@ -6,17 +6,18 @@ import adminRoutes from "./routes/adminRoutes.js";
 import { notFound, errorHandler } from "./middleware/userMiddleware.js";
 import connectDB from "./config/db.js";
 import cors from "cors";
-
+import "./utils/orderscheduler.js";
 dotenv.config();
+
 const port = process.env.PORT || 5000;
 
 connectDB();
 
 const app = express();
 app.use(cors());
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET,

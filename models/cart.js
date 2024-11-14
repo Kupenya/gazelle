@@ -31,10 +31,7 @@ const cartItemSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-  shippingOption: {
-    type: String,
-    required: true,
-  },
+  totalPrice: { type: Number }, // <-- Add this line to the schema
 });
 
 const cartSchema = mongoose.Schema({

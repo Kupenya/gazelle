@@ -1,6 +1,7 @@
 import Admin from "../models/adminModel.js";
 import asyncHandler from "express-async-handler";
 import Product from "../models/productSchema.js";
+import Order from "../models/order.js";
 
 // @desc    Register a new admin
 // @route   POST /api/admin
@@ -236,6 +237,81 @@ const getAdminProducts = asyncHandler(async (req, res) => {
   } else {
     res.status(404);
     throw new Error("No products found for this admin");
+  }
+});
+
+// 3.1 View All Orders with Filters
+export const getAllOrders = asyncHandler(async (req, res) => {
+  const { status, user, date, page = 1, limit = 10 } = req.query;
+
+  let filter = {};
+  if (status) filter.orderStatus = status;
+  if (user) filter.userId = user;
+  if (date) filter.createdAt = { $gte: new Date(date) };
+
+  const orders = await Order.find(filter)
+    .populate("userId", "name email") // Include user details
+    .skip((page - 1) * limit)
+    .limit(parseInt(limit));
+
+  res.json({ orders, page, totalOrders: await Order.countDocuments(filter) });
+});
+
+// 3.2 View Order Details by Order ID
+export const getOrderById = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const order = await Order.findById(orderId).populate("userId", "name email");
+
+  if (order) {
+    res.json(order);
+  } else {
+    res.status(404).json({ message: "Order not found" });
+  }
+});
+
+// 3.3 Update Order Status
+export const updateOrderStatus = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const { orderStatus } = req.body;
+
+  if (
+    !["pending", "processing", "shipped", "delivered", "cancelled"].includes(
+      orderStatus
+    )
+  ) {
+    console.log(`Received status: '${orderStatus}'`); // Log with quotes to detect any extra spaces
+
+    return res.status(400).json({ message: "Invalid status value" });
+  }
+
+  const order = await Order.findById(orderId);
+  if (order) {
+    console.log("Current Order Status:", order.orderStatus); // Log the current status
+
+    // Explicitly set the orderStatus field
+    order.orderStatus = orderStatus;
+
+    console.log("Updated Order Status:", order.orderStatus); // Log the new status
+
+    await order.save(); // Save the updated order
+
+    // Return the updated order
+    res.json({ message: "Order status updated", order });
+  } else {
+    res.status(404).json({ message: "Order not found" });
+  }
+});
+
+// 3.4 Delete Order
+export const deleteOrder = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+  const order = await Order.findById(orderId);
+
+  if (order) {
+    await order.deleteOne();
+    res.json({ message: "Order deleted successfully" });
+  } else {
+    res.status(404).json({ message: "Order not found" });
   }
 });
 
