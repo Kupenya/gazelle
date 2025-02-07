@@ -41,7 +41,7 @@ router.get("/gcart", protect, getCartForUnauthenticatedUser);
 router.put("/cart/", protect, updateAuthCartItem);
 router.put("/cart/:cartId", updateUnauthCartItem);
 
-router.delete("/cart/remove/:productId", removeCartItem);
+router.delete("/cart/remove/:productId", protect, removeCartItem);
 router.delete("/cart/clear", clearCart);
 
 // Checkout route for placing an order
