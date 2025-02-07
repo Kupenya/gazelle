@@ -37,7 +37,7 @@ router.post("/u/add-to-cart", addToCartForUnauthenticatedUser);
 router.get("/cart", protect, getCartForAuthenticatedUser);
 
 // Route for unauthenticated users
-router.get("/gcart", protect, getCartForUnauthenticatedUser);
+router.get("/gcart",  getCartForUnauthenticatedUser);
 router.put("/cart/", protect, updateAuthCartItem);
 router.put("/cart/:cartId", updateUnauthCartItem);
 
